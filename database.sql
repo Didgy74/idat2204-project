@@ -41,13 +41,14 @@ CREATE TABLE lecturers (
 );
 
 DELIMITER //
-CREATE PROCEDURE add_lecturer(IN real_name varchar(255), IN institute varchar(255))
+CREATE PROCEDURE add_lecturer(IN real_name varchar(255), IN institute varchar(255), OUT lecturer_id INT)
 BEGIN
 	INSERT INTO users VALUES(0, real_name);
     INSERT INTO lecturers VALUES (
 		LAST_INSERT_ID(),
         institute
     );
+	SET lecturer_id = LAST_INSERT_ID();
 END //
 DELIMITER ;
 
@@ -74,6 +75,11 @@ CREATE TABLE courses (
   
   name varchar(255) NOT NULL CHECK(LENGTH(name) != 0)
 );
+
+CREATE VIEW courses_info AS
+SELECT courses.name AS course_name, lecturers_info.name AS lecturer_name
+FROM courses
+LEFT JOIN lecturers_info ON courses.lecturer_id = lecturers_info.user_id;
 
 CREATE TABLE StudentsCourses (
   student_id int NOT NULL,
@@ -116,119 +122,132 @@ FROM bookings
 LEFT JOIN courses ON bookings.course_id = courses.id;
 
 
+CALL add_lecturer('John Smith', 'Business Administration', @lecturer_id);
+INSERT INTO courses VALUES (null, @lecturer_id, 'Business Ethics');
+INSERT INTO courses VALUES (null, @lecturer_id, 'Managerial Accounting');
+
+CALL add_lecturer('Mary Brown', 'Engineering', @lecturer_id);
+INSERT INTO courses VALUES (null, @lecturer_id, 'Supply Chain Management');
+INSERT INTO courses VALUES (null, @lecturer_id, 'Mechanical Design and Analysis');
+INSERT INTO courses VALUES (null, @lecturer_id, 'Engineering 101');
+
+CALL add_lecturer('David Lee', 'Computer Science', @lecturer_id);
+INSERT INTO courses VALUES (null, @lecturer_id, 'Introduction to Programming');
+INSERT INTO courses VALUES (null, @lecturer_id, 'Feline algebra');
+INSERT INTO courses VALUES (0, @lecturer_id, 'C++ as a first language');
+INSERT INTO courses VALUES (0, @lecturer_id, 'Graphics programming');
+SET @gfx_course_id = LAST_INSERT_ID();
+
+CALL add_lecturer('Sarah Johnson', 'Law', @lecturer_id);
+INSERT INTO courses VALUES (null, @lecturer_id, 'Constitutional Law');
+
+CALL add_lecturer('Michael Kim', 'Medicine', @lecturer_id);
+INSERT INTO courses VALUES (null, @lecturer_id, 'Anatomy and Physiology');
+
+CALL add_lecturer('Jane Doe', 'Sociology', @lecturer_id);
 
 
-CALL add_lecturer('Teacher Teacherson', 'IT');
-CALL add_lecturer('Teach Teacherman', 'IT');
-CALL add_lecturer('Lecturer Lecturerson', 'Math');
+INSERT INTO courses VALUES (0, null,'Rocket Science for dummies');
+INSERT INTO courses VALUES (0, null, 'Advanced teleportation');
+INSERT INTO courses VALUES (0, null, 'Comparative Religion');
+INSERT INTO courses VALUES (0, null, 'Accounting for Lawyers');
 
 
--- Insert some fields that don't have any lecturers
-INSERT INTO courses VALUES (
-  0,
-  null, 
-  'Math 101'
-); 
-INSERT INTO courses VALUES (
-  0,
-  null, 
-  'Math 102'
-); 
-INSERT INTO courses VALUES (
-  0,
-  null, 
-  'Databases'
-); 
-INSERT INTO courses VALUES (
-  0,
-  null, 
-  "Cloud Technologies"
-); 
-INSERT INTO courses VALUE (
-  0, 
-  1, -- Or search a specific lecturer name
-  'Rocket Science for dummies'
-);
-INSERT INTO courses VALUE (
-  0, 
-  1, -- Or search a specific lecturer name
-  'Advanced teleportation'
-);
-INSERT INTO courses VALUE (
-  0, 
-  2, -- Or search a specific lecturer name
-  'Comparative Religion'
-);
-INSERT INTO courses VALUE (
-  0, 
-  2, -- Or search a specific lecturer name
-  'Accounting for Lawyers'
-);
+CALL add_student('Ethan Rodriguez', @student_id);
+CALL add_student('Ava Patel', @student_id);
+CALL add_student('Liam Lee', @student_id);
+CALL add_student('Mia Kim', @student_id);
+CALL add_student('Noah Johnson', @student_id);
+CALL add_student('Emma Chen', @student_id);
+CALL add_student('Aiden Davis', @student_id);
+CALL add_student('Olivia Wong', @student_id);
+CALL add_student('Lucas Singh', @student_id);
+CALL add_student('Isabella Gupta', @student_id);
+CALL add_student('Mason Nguyen', @student_id);
+CALL add_student('Sophia Huang', @student_id);
+CALL add_student('Logan Shah', @student_id);
+CALL add_student('Harper Das', @student_id);
+CALL add_student('Jackson Park', @student_id);
 
 
-
-CALL add_student('Nils Petter', @student_id);
-INSERT INTO StudentsCourses VALUES (@student_id, 1);
-INSERT INTO StudentsCourses VALUES (@student_id, 2);
-INSERT INTO StudentsCourses VALUES (@student_id, 3);
-
-CALL add_student('Student A', @student_id);
-INSERT INTO StudentsCourses VALUES (@student_id, 4);
-INSERT INTO StudentsCourses VALUES (@student_id, 5);
-INSERT INTO StudentsCourses VALUES (@student_id, 6);
-
-CALL add_student('Student B', @student_id);
-INSERT INTO StudentsCourses VALUES (@student_id, 1);
-INSERT INTO StudentsCourses VALUES (@student_id, 3);
-INSERT INTO StudentsCourses VALUES (@student_id, 5);
-INSERT INTO StudentsCourses VALUES (@student_id, 7);
-
-CALL add_student('Malin', @student_id);
-INSERT INTO StudentsCourses VALUES (@student_id, 2);
-INSERT INTO StudentsCourses VALUES (@student_id, 4);
-INSERT INTO StudentsCourses VALUES (@student_id, 6);
-INSERT INTO StudentsCourses VALUES (@student_id, 8);
-
+DELIMITER //
+CREATE FUNCTION get_userid_of_studentindex (idx INT)
+RETURNS INT
+BEGIN
+	DECLARE result INT;
+	
+	SELECT students.user_id INTO result
+    FROM students
+    LIMIT 1
+	OFFSET idx;
+    
+    RETURN result;
+END //
+DELIMITER ;
+INSERT INTO StudentsCourses VALUES
+  (get_userid_of_studentindex(1), 1),
+  (get_userid_of_studentindex(1), 2),
+  (get_userid_of_studentindex(1), 5),
+  (get_userid_of_studentindex(1), 9),
+  (get_userid_of_studentindex(2), 1),
+  (get_userid_of_studentindex(2), 4),
+  (get_userid_of_studentindex(2), 7),
+  (get_userid_of_studentindex(3), 3),
+  (get_userid_of_studentindex(3), 5),
+  (get_userid_of_studentindex(3), 10),
+  (get_userid_of_studentindex(4), 2),
+  (get_userid_of_studentindex(4), 6),
+  (get_userid_of_studentindex(4), 11),
+  (get_userid_of_studentindex(4), 13),
+  (get_userid_of_studentindex(5), 4),
+  (get_userid_of_studentindex(5), 8),
+  (get_userid_of_studentindex(6), 3),
+  (get_userid_of_studentindex(6), 5),
+  (get_userid_of_studentindex(7), 2),
+  (get_userid_of_studentindex(7), 6),
+  (get_userid_of_studentindex(7), 14),
+  (get_userid_of_studentindex(8), 1),
+  (get_userid_of_studentindex(8), 7),
+  (get_userid_of_studentindex(8), 11),
+  (get_userid_of_studentindex(9), 2),
+  (get_userid_of_studentindex(9), 9),
+  (get_userid_of_studentindex(10), 1),
+  (get_userid_of_studentindex(10), 5),
+  (get_userid_of_studentindex(11), 3),
+  (get_userid_of_studentindex(11), 7),
+  (get_userid_of_studentindex(11), 12),
+  (get_userid_of_studentindex(12), 1),
+  (get_userid_of_studentindex(12), 6),
+  (get_userid_of_studentindex(13), 2),
+  (get_userid_of_studentindex(13), 3),
+  (get_userid_of_studentindex(13), 5),
+  (get_userid_of_studentindex(14), 1),
+  (get_userid_of_studentindex(14), 8),
+  (get_userid_of_studentindex(14), 10),
+  (get_userid_of_studentindex(14), 14);
 
 -- Insert some rooms
-INSERT INTO rooms VALUES (
-  0, 
-  2,
-  'A'
-);
-INSERT INTO rooms VALUES (
-  0, 
-  4,
-  'A'
-);
-INSERT INTO rooms VALUES (
-  0, 
-  4,
-  'A'
-);
-INSERT INTO rooms VALUES (
-  0, 
-  2,
-  'B'
-);
-
+INSERT INTO rooms VALUES (0, 2, 'A');
+INSERT INTO rooms VALUES (0, 4, 'A');
+INSERT INTO rooms VALUES (0, 4, 'A');
+INSERT INTO rooms VALUES (0, 2, 'B');
 
 -- Setup some course bookings
 INSERT INTO bookings VALUES (
   0,
   1,
   1,
-  1,
+  @gfx_course_id,
   '2024-01-01',
   8,
   12,
-  'Just some stuff'
+  'Simple raytracing'
 );
 INSERT INTO bookings VALUES (
   0,
   1,
   1,
-  2,
+  null,
   '2024-01-01',
   12,
   14,
@@ -238,9 +257,9 @@ INSERT INTO bookings VALUES (
   0,
   1,
   1,
-  null,
+  @gfx_course_id,
   '2024-01-02',
   8,
   12,
-  'Just some stuff'
+  'Photorealistic rendering'
 );
