@@ -31,14 +31,14 @@ BEGIN
 
   CLOSE cur1;
   
-  DROP ROLE IF EXISTS "student"@"localhost";
+  DROP ROLE IF EXISTS "student";
   DROP ROLE IF EXISTS "lecturer";
 END //
 DELIMITER ;
 CALL delete_users();
 
 
-CREATE ROLE "student"@"localhost";
+CREATE ROLE "student";
 CREATE ROLE "lecturer";
 
 -- Common definition for users.
@@ -109,7 +109,7 @@ BEGIN
 
 	-- Create the user account for this user ID.
 	-- In a real scenario, we would also have to generate a password.
-	SET @sql = CONCAT('CREATE USER "', username, '"@"localhost" IDENTIFIED BY "test"');
+	SET @sql = CONCAT('CREATE USER "', username, '"@"localhost";');
     PREPARE stmt FROM @sql;
     EXECUTE stmt;
     DEALLOCATE PREPARE stmt;
@@ -136,7 +136,12 @@ MODIFIES SQL DATA
 BEGIN
 	CALL add_user(real_name, username, @user_id);
 	
-	SET @sql = CONCAT('GRANT "student"@"localhost" TO "', username, '"@"localhost";');
+	SET @sql = CONCAT('GRANT "student" TO "', username, '"@"localhost";');
+    PREPARE stmt FROM @sql;
+    EXECUTE stmt;
+    DEALLOCATE PREPARE stmt;
+	
+	SET @sql = CONCAT('SET DEFAULT ROLE "student" TO "', username, '"@"localhost";');
     PREPARE stmt FROM @sql;
     EXECUTE stmt;
     DEALLOCATE PREPARE stmt;
@@ -220,9 +225,30 @@ CREATE TABLE courses (
 );
 -- Helpful view to see courses with more readable info.
 CREATE VIEW courses_info AS
-SELECT courses.name AS course_name, lecturers_info.name AS lecturer_name
+SELECT 
+	courses.id AS course_id, 
+	courses.name AS course_name, 
+	lecturers_info.user_id AS lecturer_id,
+	lecturers_info.name AS lecturer_name
 FROM courses
 LEFT JOIN lecturers_info ON courses.lecturer_id = lecturers_info.user_id;
+
+GRANT SELECT ON courses_info TO 'student';
+GRANT SELECT ON courses_info TO 'lecturer';
+
+DELIMITER //
+CREATE PROCEDURE courses_for_lecturer(IN lecturer_id INT)
+READS SQL DATA
+BEGIN
+	IF lecturer_id IS NULL THEN
+		SELECT * FROM courses_info WHERE courses_info.lecturer_id IS NULL;
+	ELSE
+		SELECT * FROM courses_info WHERE courses_info.lecturer_id = lecturer_id;
+	END IF;
+END //
+DELIMITER ;
+GRANT EXECUTE ON PROCEDURE courses_for_lecturer TO 'student';
+GRANT EXECUTE ON PROCEDURE courses_for_lecturer TO 'lecturer';
 
 DELIMITER //
 CREATE FUNCTION lecturer_has_course(lecturer_id int, course_id int)
