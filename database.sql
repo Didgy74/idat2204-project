@@ -31,12 +31,15 @@ BEGIN
 
   CLOSE cur1;
   
-  DROP ROLE IF EXISTS student;
-  DROP ROLE IF EXISTS lecturer;
+  DROP ROLE IF EXISTS "student"@"localhost";
+  DROP ROLE IF EXISTS "lecturer";
 END //
 DELIMITER ;
 CALL delete_users();
 
+
+CREATE ROLE "student"@"localhost";
+CREATE ROLE "lecturer";
 
 -- Common definition for users.
 CREATE TABLE users (
@@ -47,6 +50,8 @@ CREATE TABLE users (
   username varchar(32) NOT NULL UNIQUE,
   name varchar(255) NOT NULL CHECK (LENGTH(name) != 0)
 );
+
+GRANT SELECT ON users TO "lecturer";
 
 DELIMITER //
 CREATE FUNCTION username_exists(username VARCHAR(32)) 
@@ -82,6 +87,8 @@ END //
 DELIMITER ;
 
 
+
+
 -- Procedure for adding a new user account
 -- and also inserting it into the 'users' table.
 DELIMITER //
@@ -102,12 +109,12 @@ BEGIN
 
 	-- Create the user account for this user ID.
 	-- In a real scenario, we would also have to generate a password.
-	SET @sql = CONCAT('CREATE USER "', username, '"@"localhost";');
+	SET @sql = CONCAT('CREATE USER "', username, '"@"localhost" IDENTIFIED BY "test"');
     PREPARE stmt FROM @sql;
     EXECUTE stmt;
     DEALLOCATE PREPARE stmt;
 	
-	INSERT INTO users VALUES (0, username, real_name);
+	INSERT INTO users VALUES (0, CONCAT(username, "@localhost"), real_name);
 	SET user_id = LAST_INSERT_ID();
 END //
 DELIMITER ;
@@ -115,8 +122,7 @@ DELIMITER ;
 
 
 
-DROP ROLE IF EXISTS student;
-CREATE ROLE student;
+
 -- Definiton for students. Specialization of user.
 CREATE TABLE students (
   user_id int NOT NULL UNIQUE,
@@ -129,7 +135,8 @@ CREATE PROCEDURE add_student(IN real_name varchar(255), IN username varchar(32),
 MODIFIES SQL DATA
 BEGIN
 	CALL add_user(real_name, username, @user_id);
-	SET @sql = CONCAT('GRANT "student" TO "', username, '"@"localhost";');
+	
+	SET @sql = CONCAT('GRANT "student"@"localhost" TO "', username, '"@"localhost";');
     PREPARE stmt FROM @sql;
     EXECUTE stmt;
     DEALLOCATE PREPARE stmt;
@@ -149,8 +156,6 @@ FROM students JOIN users ON students.user_id = users.id;
 
 
 
-DROP ROLE IF EXISTS lecturer;
-CREATE ROLE lecturer;
 -- Definition for lecturers. Specialization of user.
 CREATE TABLE lecturers (
   user_id int NOT NULL UNIQUE,
@@ -165,7 +170,16 @@ CREATE PROCEDURE add_lecturer(IN real_name varchar(255), IN username varchar(32)
 MODIFIES SQL DATA
 BEGIN
 	CALL add_user(real_name, username, @user_id);
+	
+	-- Grant the lecturer role
 	SET @sql = CONCAT('GRANT "lecturer" TO "', username, '"@"localhost";');
+    PREPARE stmt FROM @sql;
+    EXECUTE stmt;
+    DEALLOCATE PREPARE stmt;
+	FLUSH PRIVILEGES;
+	
+	-- Set the default role for the new user
+	SET @sql = CONCAT('SET DEFAULT ROLE "lecturer" TO "', username, '"@"localhost";');
     PREPARE stmt FROM @sql;
     EXECUTE stmt;
     DEALLOCATE PREPARE stmt;
@@ -209,6 +223,18 @@ CREATE VIEW courses_info AS
 SELECT courses.name AS course_name, lecturers_info.name AS lecturer_name
 FROM courses
 LEFT JOIN lecturers_info ON courses.lecturer_id = lecturers_info.user_id;
+
+DELIMITER //
+CREATE FUNCTION lecturer_has_course(lecturer_id int, course_id int)
+RETURNS BOOLEAN
+READS SQL DATA
+BEGIN
+	RETURN course_id IN (
+		SELECT courses.id 
+		FROM courses 
+		WHERE courses.lecturer_id = lecturer_id);
+END //
+DELIMITER ;
 
 
 
@@ -255,12 +281,17 @@ CREATE TABLE bookings (
   
   description varchar(255) NOT NULL
 );
+GRANT SELECT ON bookings TO 'lecturer';
+
 -- Helpful view to see bookings with more readable info.
 CREATE VIEW bookings_info AS
 SELECT room_id, booking_date, start_hour, end_hour, description, courses.name AS course_name
 FROM bookings
-LEFT JOIN courses ON bookings.course_id = courses.id;
-ORDER BY booking_date, start_hour
+LEFT JOIN courses ON bookings.course_id = courses.id
+ORDER BY booking_date;
+
+GRANT SHOW VIEW ON bookings_info TO 'lecturer';
+
 
 -- Returns true if this booking timeslot is already reserved
 DELIMITER //
@@ -317,7 +348,6 @@ DELIMITER ;
 
 DELIMITER //
 CREATE PROCEDURE add_booking_lecturer(
-	user_id int, 
 	room_id int, 
 	course_id int, 
 	booking_date date, 
@@ -327,21 +357,24 @@ CREATE PROCEDURE add_booking_lecturer(
 MODIFIES SQL DATA
 BEGIN
 	-- First check that the course id is among the ones the lecturer is assigned to.
+	SET @user_id := userid_from_username(user());
 	
-	INSERT INTO bookings (user_id, room_id, course_id, booking_date, start_hour, end_hour, description)
-	VALUES (
-		user_id,
+	IF (course_id IS NOT NULL) AND (NOT lecturer_has_course(@user_id, course_id)) THEN
+		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Course not managed by this lecturer.';
+	END IF;
+	
+	CALL add_booking_admin(
+		@user_id,
 		room_id,
 		course_id,
 		booking_date,
 		start_hour,
 		end_hour,
-		description
-	);
+		description);
 
 END //
 DELIMITER ;
-
+GRANT EXECUTE ON PROCEDURE add_booking_lecturer TO 'lecturer';
 
 
 
