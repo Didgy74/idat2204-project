@@ -262,34 +262,35 @@ INSERT INTO StudentsCourses VALUES
   (get_userid_of_studentindex(14), 14);
 DROP FUNCTION get_userid_of_studentindex;
 
--- Insert 10 rooms
+-- Insert rooms
 INSERT INTO rooms(size, building) VALUES
 	(25, 'Alpha'),
 	(30, 'Beta'),
-	(20, 'Alpha');
+	(20, 'Alpha'),
+	(45, 'Alpha');
 
 INSERT INTO bookings(user_id, room_id, course_id, booking_date, start_hour, end_hour, description) VALUES
 	(1, 1, 1, '2023-05-01', 8, 13, 'Maths Tutorial'),
 	(2, 2, 3, '2023-05-01', 10, 12, 'Physics Lab'),
 	(3, 1, 5, '2023-05-01', 14, 16, 'Economics class'),
 	(4, 1, 7, '2023-05-01', 16, 18, 'Introduction to Programming'),
-	(5, 2, 9, '2023-05-02', 8, 10, 'History lecture'),
+	(5, 2, null, '2023-05-02', 8, 10, 'History lecture'),
 	(6, 3, 11, '2023-05-02', 10, 12, 'Marketing seminar'),
 	(7, 1, 13, '2023-05-02', 14, 16, 'Spanish Course'),
 	(8, 2, 15, '2023-05-02', 16, 18, 'Sociology Tutorial'),
-	(9, 3, 2, '2023-05-03', 8, 10, 'English Literature Class'),
+	(9, 3, null, '2023-05-03', 8, 10, 'English Literature Class'),
 	(10, 1, 4, '2023-05-03', 10, 12, 'Biology lab'),
 	(11, 2, 6, '2023-05-03', 14, 16, 'Computer Networks'),
 	(12, 3, 8, '2023-05-03', 16, 18, 'Philosophy Seminar'),
 	(2, 1, 10, '2023-05-04', 8, 10, 'Statistics class'),
-	(4, 2, 12, '2023-05-04', 10, 12, 'Chemistry Tutorial'),
+	(4, 2, null, '2023-05-04', 10, 12, 'Chemistry Tutorial'),
 	(6, 3, 14, '2023-05-04', 14, 16, 'Public Speaking Course'),
 	(8, 1, 16, '2023-05-04', 16, 18, 'Journalism Workshop'),
-	(10, 2, 3, '2023-05-05', 8, 10, 'Geology lecture'),
+	(10, 2, null, '2023-05-05', 8, 10, 'Geology lecture'),
 	(12, 3, 5, '2023-05-05', 10, 12, 'History of Art class'),
 	(1, 1, 7, '2023-05-05', 14, 16, 'French course'),
 	(3, 2, 9, '2023-05-05', 16, 18, 'Business Analytics'),
-	(5, 3, 11, '2023-05-06', 8, 10, 'Marketing Strategies'),
+	(5, 3, null, '2023-05-06', 8, 10, 'Marketing Strategies'),
 	(7, 1, 13, '2023-05-06', 10, 12, 'German course'),
 	(9, 2, 15, '2023-05-06', 14, 16, 'Anthropology Tutorial'),
 	(11, 3, 2, '2023-05-06', 16, 18, 'English Language Course'),

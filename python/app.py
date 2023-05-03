@@ -103,6 +103,7 @@ def task06(username, lecturer_id):
     """
     return run_query(username, query)
 
+
 @app.route('/<username>/task07/<lecturer_id>')
 def task07(username, lecturer_id):
     query = f"""
@@ -116,6 +117,7 @@ def task07(username, lecturer_id):
         ORDER BY booking_date;
     """
     return run_query(username, query)
+
 
 @app.route('/<username>/task09/<user_id>')
 def task09(username, user_id):
@@ -135,6 +137,28 @@ def task09(username, user_id):
         WHERE bookings.user_id = {user_id};
     """
     return run_query(username, query)
+
+
+@app.route('/<username>/task10')
+def task10(username):
+    query = f"""
+        SELECT 
+            rooms.id AS room_id, 
+            rooms.size AS room_size, 
+            rooms.building, 
+            bookings.id AS booking_id,
+            users.real_name AS user_realname,
+            bookings.id AS course_id,
+            booking_date,
+            start_hour,
+            end_hour
+        FROM rooms
+        LEFT JOIN bookings ON bookings.room_id = rooms.id
+        LEFT JOIN users ON bookings.user_id = users.id
+        ORDER BY rooms.id;
+    """
+    return run_query(username, query)
+
 
 if __name__ == '__main__':
     app.run()
