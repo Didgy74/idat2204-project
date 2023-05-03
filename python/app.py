@@ -103,6 +103,20 @@ def task06(username, lecturer_id):
     """
     return run_query(username, query)
 
+@app.route('/<username>/task07/<lecturer_id>')
+def task07(username, lecturer_id):
+    query = f"""
+        SELECT room_id, building, course_name, description, booking_date, start_hour, end_hour, lecturer_id
+        FROM bookings
+        JOIN courses ON bookings.course_id = courses.id
+        JOIN rooms ON rooms.id = bookings.room_id
+        WHERE
+            bookings.course_id IS NOT NULL AND
+            courses.lecturer_id = {lecturer_id}        
+        ORDER BY booking_date;
+    """
+    return run_query(username, query)
+
 
 if __name__ == '__main__':
     app.run()
