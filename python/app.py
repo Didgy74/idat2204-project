@@ -118,6 +118,28 @@ def task07(username, lecturer_id):
     """
     return run_query(username, query)
 
+@app.route('/<username>/task08/<date>/<start>/<end>')
+def task08(username, date, start, end):
+    query = f"""
+        SELECT 
+            rooms.id AS room_id,
+            rooms.size AS room_size,
+            rooms.building
+        FROM rooms
+        LEFT OUTER JOIN (
+            SELECT *
+            FROM bookings 
+            WHERE 
+                booking_date = '{date}' AND (
+                    (start_hour <= {start} AND end_hour > {start}) OR 
+                    (start_hour >= {start} AND start_hour < {end})
+                )
+            ) AS t1 ON rooms.id = t1.room_id
+            WHERE t1.room_id IS NULL
+        ORDER BY rooms.id;
+    """
+    return run_query(username, query)
+
 
 @app.route('/<username>/task09/<user_id>')
 def task09(username, user_id):
