@@ -2,126 +2,15 @@ DROP DATABASE IF EXISTS project;
 CREATE DATABASE project;
 USE project;
 
-DROP PROCEDURE IF EXISTS delete_users;
-DELIMITER //
-CREATE PROCEDURE delete_users()
-BEGIN
-  DECLARE username CHAR(255);
-  DECLARE done INT DEFAULT FALSE;
-
-  DECLARE cur1 CURSOR FOR SELECT user FROM mysql.user WHERE host = "localhost";
-  DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = TRUE;
-
-  OPEN cur1;
-
-  my_loop: LOOP
-    FETCH cur1 INTO username;
-	IF done THEN
-      LEAVE my_loop;
-    END IF;
-    
-    IF username NOT IN ('mysql.sys', 'mysql.infoschema', 'mysql.session', 'root') THEN 
-    	SET @sql = CONCAT('DROP USER IF EXISTS "', username, '"@"localhost";');
-		PREPARE stmt FROM @sql;
-		EXECUTE stmt;
-		DEALLOCATE PREPARE stmt;
-    END IF;
-    
-  END LOOP;
-
-  CLOSE cur1;
-  
-  DROP ROLE IF EXISTS "student";
-  DROP ROLE IF EXISTS "lecturer";
-END //
-DELIMITER ;
-CALL delete_users();
-
-
-CREATE ROLE "student";
-CREATE ROLE "lecturer";
-
 -- Common definition for users.
 CREATE TABLE users (
   id int NOT NULL UNIQUE AUTO_INCREMENT,
   PRIMARY KEY (id),
   
-  -- MySQL limits usernames to 32 size
   username varchar(32) NOT NULL UNIQUE,
-  name varchar(255) NOT NULL CHECK (LENGTH(name) != 0)
+  real_name varchar(255) NOT NULL CHECK (LENGTH(real_name) != 0)
 );
-
-GRANT SELECT ON users TO "lecturer";
-
-DELIMITER //
-CREATE FUNCTION username_exists(username VARCHAR(32)) 
-RETURNS BOOLEAN
-READS SQL DATA
-BEGIN
-    SET @count := 0;
-    SELECT COUNT(*) INTO @count
-    FROM users
-    WHERE users.username = username;
-	
-    IF @count > 0 THEN
-        RETURN TRUE;
-    ELSE
-        RETURN FALSE;
-    END IF;
-END //
-DELIMITER ;
-
-DELIMITER //
-CREATE FUNCTION userid_from_username(username VARCHAR(32)) 
-RETURNS INT
-READS SQL DATA
-BEGIN
-    SET @id := 0;
-    SELECT id INTO @id
-    FROM users
-    WHERE users.username = username
-	LIMIT 1;
-	
-    RETURN @id;
-END //
-DELIMITER ;
-
-
-
-
--- Procedure for adding a new user account
--- and also inserting it into the 'users' table.
-DELIMITER //
-CREATE PROCEDURE add_user(IN real_name varchar(255), IN username varchar(32), OUT user_id INT)
-MODIFIES SQL DATA
-BEGIN
-	-- First some input validation
-	IF real_name IS NULL OR username IS NULL THEN
-		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'NULL is not allowed.';
-	END IF;
-	if real_name = "" OR username = "" THEN
-		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Empty name is not allowed.';	
-	END IF;	
-	IF username_exists(username) THEN
-		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Username already exists.';
-	END IF;
-
-
-	-- Create the user account for this user ID.
-	-- In a real scenario, we would also have to generate a password.
-	SET @sql = CONCAT('CREATE USER "', username, '"@"localhost";');
-    PREPARE stmt FROM @sql;
-    EXECUTE stmt;
-    DEALLOCATE PREPARE stmt;
-	
-	INSERT INTO users VALUES (0, CONCAT(username, "@localhost"), real_name);
-	SET user_id = LAST_INSERT_ID();
-END //
-DELIMITER ;
-
-
-
-
+INSERT INTO users VALUES(null, 'root', 'root');
 
 -- Definiton for students. Specialization of user.
 CREATE TABLE students (
@@ -129,37 +18,10 @@ CREATE TABLE students (
   PRIMARY KEY (user_id),
   FOREIGN KEY (user_id) REFERENCES users(id)
 );
-
-DELIMITER //
-CREATE PROCEDURE add_student(IN real_name varchar(255), IN username varchar(32), OUT student_id INT)
-MODIFIES SQL DATA
-BEGIN
-	CALL add_user(real_name, username, @user_id);
-	
-	SET @sql = CONCAT('GRANT "student" TO "', username, '"@"localhost";');
-    PREPARE stmt FROM @sql;
-    EXECUTE stmt;
-    DEALLOCATE PREPARE stmt;
-	
-	SET @sql = CONCAT('SET DEFAULT ROLE "student" TO "', username, '"@"localhost";');
-    PREPARE stmt FROM @sql;
-    EXECUTE stmt;
-    DEALLOCATE PREPARE stmt;
-	
-	INSERT INTO students VALUES (@user_id);
-	SET student_id = @user_id;
-END //
-DELIMITER ;
 -- Helpful view to see students with more readable info.
 CREATE VIEW students_info AS
-SELECT students.user_id, users.name, users.username
+SELECT students.user_id, users.real_name, users.username
 FROM students JOIN users ON students.user_id = users.id;
-
-
-
-
-
-
 
 -- Definition for lecturers. Specialization of user.
 CREATE TABLE lecturers (
@@ -169,34 +31,11 @@ CREATE TABLE lecturers (
   
   institute varchar(255) NOT NULL CHECK(LENGTH(institute) != 0)
 );
-
-DELIMITER //
-CREATE PROCEDURE add_lecturer(IN real_name varchar(255), IN username varchar(32), IN institute varchar(255), OUT lecturer_id INT)
-MODIFIES SQL DATA
-BEGIN
-	CALL add_user(real_name, username, @user_id);
-	
-	-- Grant the lecturer role
-	SET @sql = CONCAT('GRANT "lecturer" TO "', username, '"@"localhost";');
-    PREPARE stmt FROM @sql;
-    EXECUTE stmt;
-    DEALLOCATE PREPARE stmt;
-	FLUSH PRIVILEGES;
-	
-	-- Set the default role for the new user
-	SET @sql = CONCAT('SET DEFAULT ROLE "lecturer" TO "', username, '"@"localhost";');
-    PREPARE stmt FROM @sql;
-    EXECUTE stmt;
-    DEALLOCATE PREPARE stmt;
-
-    INSERT INTO lecturers VALUES (@user_id, institute);
-	SET lecturer_id = @user_id;
-END //
-DELIMITER ;
 -- Helpful view to see lecturers with more readable info.
 CREATE VIEW lecturers_info AS
-SELECT lecturers.user_id, users.name, users.username, lecturers.institute
-FROM lecturers JOIN users ON lecturers.user_id = users.id;
+SELECT user_id, users.real_name, users.username, lecturers.institute
+FROM lecturers 
+JOIN users ON lecturers.user_id = users.id;
 
 
 -- Definition of rooms that can be booked
@@ -209,8 +48,6 @@ CREATE TABLE rooms (
   building varchar(255) NOT NULL CHECK (LENGTH(building) != 0)
 );
 
-
-
 -- Definition of courses.
 CREATE TABLE courses (
   id int UNIQUE NOT NULL AUTO_INCREMENT,
@@ -218,53 +55,19 @@ CREATE TABLE courses (
   
   -- Has to be nullable because the assignment requires us to have courses
   -- that do not have a lecturer assigned yet.
-  lecturer_id int,
+  lecturer_id int DEFAULT NULL,
   FOREIGN KEY (lecturer_id) REFERENCES lecturers(user_id),
   
-  name varchar(255) NOT NULL CHECK(LENGTH(name) != 0)
+  course_name varchar(255) NOT NULL CHECK(LENGTH(course_name) != 0)
 );
 -- Helpful view to see courses with more readable info.
 CREATE VIEW courses_info AS
 SELECT 
 	courses.id AS course_id, 
-	courses.name AS course_name, 
-	lecturers_info.user_id AS lecturer_id,
-	lecturers_info.name AS lecturer_name
+	courses.course_name, 
+	lecturers_info.real_name AS lecturer_name
 FROM courses
 LEFT JOIN lecturers_info ON courses.lecturer_id = lecturers_info.user_id;
-
-GRANT SELECT ON courses_info TO 'student';
-GRANT SELECT ON courses_info TO 'lecturer';
-
-DELIMITER //
-CREATE PROCEDURE courses_for_lecturer(IN lecturer_id INT)
-READS SQL DATA
-BEGIN
-	IF lecturer_id IS NULL THEN
-		SELECT * FROM courses_info WHERE courses_info.lecturer_id IS NULL;
-	ELSE
-		SELECT * FROM courses_info WHERE courses_info.lecturer_id = lecturer_id;
-	END IF;
-END //
-DELIMITER ;
-GRANT EXECUTE ON PROCEDURE courses_for_lecturer TO 'student';
-GRANT EXECUTE ON PROCEDURE courses_for_lecturer TO 'lecturer';
-
-DELIMITER //
-CREATE FUNCTION lecturer_has_course(lecturer_id int, course_id int)
-RETURNS BOOLEAN
-READS SQL DATA
-BEGIN
-	RETURN course_id IN (
-		SELECT courses.id 
-		FROM courses 
-		WHERE courses.lecturer_id = lecturer_id);
-END //
-DELIMITER ;
-
-
-
-
 
 -- Holds the many-to-many relation between students enrolled in courses.
 CREATE TABLE StudentsCourses (
@@ -276,16 +79,11 @@ CREATE TABLE StudentsCourses (
 );
 -- Helpful view to see student-courses with more readable info.
 CREATE VIEW students_courses_names AS
-SELECT courses.name AS course_name, students_info.name AS student_name
+SELECT courses.course_name AS course_name, students_info.real_name AS student_name
 FROM studentscourses
 JOIN students_info ON studentscourses.student_id = students_info.user_id
 JOIN courses ON studentscourses.course_id = courses.id
-ORDER BY courses.name ASC;
-
-
-
-
-
+ORDER BY courses.course_name ASC;
 
 CREATE TABLE bookings (
   id int NOT NULL UNIQUE AUTO_INCREMENT,
@@ -297,7 +95,7 @@ CREATE TABLE bookings (
   room_id int NOT NULL,
   FOREIGN KEY (room_id) REFERENCES rooms(id),
   
-  course_id int,
+  course_id int DEFAULT NULL,
   FOREIGN KEY (course_id) REFERENCES courses(id),
   
   booking_date DATE NOT NULL,
@@ -307,175 +105,123 @@ CREATE TABLE bookings (
   
   description varchar(255) NOT NULL
 );
-GRANT SELECT ON bookings TO 'lecturer';
-
 -- Helpful view to see bookings with more readable info.
 CREATE VIEW bookings_info AS
-SELECT room_id, booking_date, start_hour, end_hour, description, courses.name AS course_name
+SELECT room_id, booking_date, start_hour, end_hour, description, courses.course_name AS course_name
 FROM bookings
 LEFT JOIN courses ON bookings.course_id = courses.id
 ORDER BY booking_date;
 
-GRANT SHOW VIEW ON bookings_info TO 'lecturer';
 
-
--- Returns true if this booking timeslot is already reserved
-DELIMITER //
-CREATE FUNCTION is_booking_timeslot_reserved(room_id INT, booking_date DATE, start_hour INT, end_hour INT)
-RETURNS BOOLEAN
-READS SQL DATA
-BEGIN
-    SET @count := 0;
-    SELECT COUNT(*) INTO @count
-    FROM bookings
-    WHERE 
-	room_id = bookings.room_id AND
-	booking_date = bookings.booking_date AND
-	((start_hour >= bookings.start_hour AND start_hour < bookings.end_hour) OR
-	(end_hour > bookings.start_hour AND end_hour <= bookings.end_hour));
-	
-    IF @count > 0 THEN
-        RETURN TRUE;
-    ELSE
-        RETURN FALSE;
-    END IF;
-END //
-DELIMITER ;
-
-DELIMITER //
-CREATE PROCEDURE add_booking_admin(
-	user_id int, 
-	room_id int, 
-	course_id int, 
-	booking_date date, 
-	start_hour int, 
-	end_hour int, 
-	description varchar(255))
-MODIFIES SQL DATA
-BEGIN
-	-- First check that it is not reserved.
-	IF is_booking_timeslot_reserved(room_id, booking_date, start_hour, end_hour) THEN
-		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Timeslot is already reserved.';
-	END IF;
-	
-	INSERT INTO bookings (user_id, room_id, course_id, booking_date, start_hour, end_hour, description)
-	VALUES (
-		user_id,
-		room_id,
-		course_id,
-		booking_date,
-		start_hour,
-		end_hour,
-		description
-	);
-
-END //
-DELIMITER ;
-
-DELIMITER //
-CREATE PROCEDURE add_booking_lecturer(
-	room_id int, 
-	course_id int, 
-	booking_date date, 
-	start_hour int, 
-	end_hour int, 
-	description varchar(255))
-MODIFIES SQL DATA
-BEGIN
-	-- First check that the course id is among the ones the lecturer is assigned to.
-	SET @user_id := userid_from_username(user());
-	
-	IF (course_id IS NOT NULL) AND (NOT lecturer_has_course(@user_id, course_id)) THEN
-		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Course not managed by this lecturer.';
-	END IF;
-	
-	CALL add_booking_admin(
-		@user_id,
-		room_id,
-		course_id,
-		booking_date,
-		start_hour,
-		end_hour,
-		description);
-
-END //
-DELIMITER ;
-GRANT EXECUTE ON PROCEDURE add_booking_lecturer TO 'lecturer';
-
-
-
-
-
-
-
-
-CALL add_lecturer('John Smith', 'jsmith', 'Business Administration', @lecturer_id);
+-- Add a lecturer and give him some courses.
+INSERT INTO users VALUES (null, 'jsmith', 'John Smith');
+SET @lecturer_id := LAST_INSERT_ID();
+INSERT INTO lecturers VALUES (@lecturer_id, 'Business Administration');
 INSERT INTO courses VALUES (null, @lecturer_id, 'Ladders');
 INSERT INTO courses VALUES (null, @lecturer_id, 'Advanced Breath Holding');
 
-CALL add_lecturer('Mary Brown', 'mbrown', 'Engineering', @lecturer_id);
+INSERT INTO users VALUES (null, 'mbrown', 'Mary Brown');
+SET @lecturer_id := LAST_INSERT_ID();
+INSERT INTO lecturers VALUES (@lecturer_id, 'Engineering');
 INSERT INTO courses VALUES (null, @lecturer_id, 'Theoretical Phys Ed');
 INSERT INTO courses VALUES (null, @lecturer_id, 'Physical Education Education');
 INSERT INTO courses VALUES (null, @lecturer_id, 'Class 101');
 
-CALL add_lecturer('David Lee', 'dlee', 'Computer Science', @lecturer_id);
+INSERT INTO users VALUES (null, 'dlee', 'David Lee');
+SET @lecturer_id := LAST_INSERT_ID();
+INSERT INTO lecturers VALUES (@lecturer_id, 'Computer Science');
 INSERT INTO courses VALUES (null, @lecturer_id, 'The History of Internet Cat Videos');
 INSERT INTO courses VALUES (null, @lecturer_id, 'Feline Algebra');
 INSERT INTO courses VALUES (null, @lecturer_id, 'C++ as a first language');
 INSERT INTO courses VALUES (null, @lecturer_id, 'Graphics programming');
 SET @gfx_course_id = LAST_INSERT_ID();
 
-CALL add_lecturer('Sarah Johnson', 'sjohnson', 'Law', @lecturer_id);
+INSERT INTO users VALUES (null, 'sjohnson', 'Sarah Johnson');
+SET @lecturer_id := LAST_INSERT_ID();
+INSERT INTO lecturers VALUES (@lecturer_id, 'Law');
 INSERT INTO courses VALUES (null, @lecturer_id, 'Sneezing Fundamentals');
 
-CALL add_lecturer('Michael Kim', 'mkim', 'Medicine', @lecturer_id);
+INSERT INTO users VALUES (null, 'mkim', 'Michael Kim');
+SET @lecturer_id := LAST_INSERT_ID();
+INSERT INTO lecturers VALUES (@lecturer_id, 'Medicine');
 INSERT INTO courses VALUES (null, @lecturer_id, 'Food Poisoning 102');
 
-CALL add_lecturer('Jane Doe', 'jdoe', 'Sociology', @lecturer_id);
+INSERT INTO users VALUES (null, 'jdoe', 'John Doe');
+SET @lecturer_id := LAST_INSERT_ID();
+INSERT INTO lecturers VALUES (@lecturer_id, 'Sociology');
 
+-- Add some courses without any lecturer.
+INSERT INTO courses(course_name) VALUES 
+	('Rocket Science for dummies'),
+    ('Advanced teleportation'),
+    ('Intro to Napping 101'),
+    ('The Art of Procrastination'),
+    ('The Fine Art of Water Balloon Warfare');
 
-INSERT INTO courses VALUES (0, null,'Rocket Science for dummies');
-INSERT INTO courses VALUES (0, null, 'Advanced teleportation');
-INSERT INTO courses VALUES (0, null, 'Intro to Napping 101');
-INSERT INTO courses VALUES (0, null, 'The Art of Procrastination');
-INSERT INTO courses VALUES (0, null, 'The Fine Art of Water Balloon Warfare');
+-- 15 students.
+INSERT INTO users VALUES (null, 'nils', 'Nils Petter');
+SET @student_id = LAST_INSERT_ID();
+INSERT INTO students VALUES (@student_id);
+INSERT INTO users VALUES (null, 'apatel', 'Ava Patel');
+SET @student_id = LAST_INSERT_ID();
+INSERT INTO students VALUES (@student_id);
+INSERT INTO users VALUES (null, 'llee', 'Liam Lee');
+SET @student_id = LAST_INSERT_ID();
+INSERT INTO students VALUES (@student_id);
+INSERT INTO users VALUES (null, 'mkim2', 'Mia Kim');
+SET @student_id = LAST_INSERT_ID();
+INSERT INTO students VALUES (@student_id);
+INSERT INTO users VALUES (null, 'njohnson', 'Noah Johnson');
+SET @student_id = LAST_INSERT_ID();
+INSERT INTO students VALUES (@student_id);
+INSERT INTO users VALUES (null, 'echen', 'Emma Chen');
+SET @student_id = LAST_INSERT_ID();
+INSERT INTO students VALUES (@student_id);
+INSERT INTO users VALUES (null, 'adavis', 'Aiden Davis');
+SET @student_id = LAST_INSERT_ID();
+INSERT INTO students VALUES (@student_id);
+INSERT INTO users VALUES (null, 'owong', 'Olivia Wong');
+SET @student_id = LAST_INSERT_ID();
+INSERT INTO students VALUES (@student_id);
+INSERT INTO users VALUES (null, 'lsingh', 'Lucas Singh');
+SET @student_id = LAST_INSERT_ID();
+INSERT INTO students VALUES (@student_id);
+INSERT INTO users VALUES (null, 'igupta', 'Isabella Gupta');
+SET @student_id = LAST_INSERT_ID();
+INSERT INTO students VALUES (@student_id);
+INSERT INTO users VALUES (null, 'mnguyen', 'Mason Nguyen');
+SET @student_id = LAST_INSERT_ID();
+INSERT INTO students VALUES (@student_id);
+INSERT INTO users VALUES (null, 'shuang', 'Sophia Huang');
+SET @student_id = LAST_INSERT_ID();
+INSERT INTO students VALUES (@student_id);
+INSERT INTO users VALUES (null, 'lshah', 'Logan Shah');
+SET @student_id = LAST_INSERT_ID();
+INSERT INTO students VALUES (@student_id);
+INSERT INTO users VALUES (null, 'hdas', 'Harper Das');
+SET @student_id = LAST_INSERT_ID();
+INSERT INTO students VALUES (@student_id);
+INSERT INTO users VALUES (null, 'jpark', 'Jackson Park');
+SET @student_id = LAST_INSERT_ID();
+INSERT INTO students VALUES (@student_id);
 
-
-CALL add_student('Nils Petter', 'nils', @student_id);
-CALL add_student('Ava Patel', 'apatel', @student_id);
-CALL add_student('Liam Lee', 'llee', @student_id);
-CALL add_student('Mia Kim', 'miakim', @student_id);
-CALL add_student('Noah Johnson', 'njohnson', @student_id);
-CALL add_student('Emma Chen', 'echen', @student_id);
-CALL add_student('Aiden Davis', 'adavis', @student_id);
-CALL add_student('Olivia Wong', 'owong', @student_id);
-CALL add_student('Lucas Singh', 'lsingh', @student_id);
-CALL add_student('Isabella Gupta', 'igupta', @student_id);
-CALL add_student('Mason Nguyen', 'mnguyen', @student_id);
-CALL add_student('Sophia Huang', 'shuang', @student_id);
-CALL add_student('Logan Shah', 'lshah', @student_id);
-CALL add_student('Harper Das', 'hdas', @student_id);
-CALL add_student('Jackson Park', 'jpark', @student_id);
-
-
+-- Insert 20 course enrollments.
 DELIMITER //
 CREATE FUNCTION get_userid_of_studentindex (idx INT)
 RETURNS INT
 READS SQL DATA
 BEGIN
 	DECLARE result INT;
-	
 	SELECT students.user_id INTO result
     FROM students
     LIMIT 1
 	OFFSET idx;
-    
     RETURN result;
 END //
 DELIMITER ;
 INSERT INTO StudentsCourses VALUES
-  (get_userid_of_studentindex(1), 1),
-  (get_userid_of_studentindex(1), 2),
+  (get_userid_of_studentindex(0), 1),
+  (get_userid_of_studentindex(0), 2),
   (get_userid_of_studentindex(1), 5),
   (get_userid_of_studentindex(1), 9),
   (get_userid_of_studentindex(2), 1),
@@ -514,42 +260,37 @@ INSERT INTO StudentsCourses VALUES
   (get_userid_of_studentindex(14), 8),
   (get_userid_of_studentindex(14), 10),
   (get_userid_of_studentindex(14), 14);
+DROP FUNCTION get_userid_of_studentindex;
 
--- Insert some rooms
-INSERT INTO rooms VALUES (0, 2, 'A');
-INSERT INTO rooms VALUES (0, 4, 'A');
-INSERT INTO rooms VALUES (0, 4, 'A');
-INSERT INTO rooms VALUES (0, 2, 'B');
+-- Insert 10 rooms
+INSERT INTO rooms(size, building) VALUES
+	(25, 'Alpha'),
+	(30, 'Beta'),
+	(20, 'Alpha');
 
-CALL add_booking_admin(
-	1, 
-	1,
-	1,
-	'2024-01-01',
-	8,
-	12,
-	'First room');
-CALL add_booking_admin(
-	2, 
-	2,
-	2,
-	'2024-01-01',
-	8,
-	12,
-	'Other room');
-CALL add_booking_admin(
-	1, 
-	2,
-	null,
-	'2024-01-01',
-	12,
-	14,
-	'First room again');
-CALL add_booking_admin(
-	1, 
-	1,
-	null,
-	'2024-01-02',
-	8,
-	14,
-	'Next day, first room');
+INSERT INTO bookings(user_id, room_id, course_id, booking_date, start_hour, end_hour, description) VALUES
+	(1, 1, 1, '2023-05-01', 8, 13, 'Maths Tutorial'),
+	(2, 2, 3, '2023-05-01', 10, 12, 'Physics Lab'),
+	(3, 1, 5, '2023-05-01', 14, 16, 'Economics class'),
+	(4, 1, 7, '2023-05-01', 16, 18, 'Introduction to Programming'),
+	(5, 2, 9, '2023-05-02', 8, 10, 'History lecture'),
+	(6, 3, 11, '2023-05-02', 10, 12, 'Marketing seminar'),
+	(7, 1, 13, '2023-05-02', 14, 16, 'Spanish Course'),
+	(8, 2, 15, '2023-05-02', 16, 18, 'Sociology Tutorial'),
+	(9, 3, 2, '2023-05-03', 8, 10, 'English Literature Class'),
+	(10, 1, 4, '2023-05-03', 10, 12, 'Biology lab'),
+	(11, 2, 6, '2023-05-03', 14, 16, 'Computer Networks'),
+	(12, 3, 8, '2023-05-03', 16, 18, 'Philosophy Seminar'),
+	(2, 1, 10, '2023-05-04', 8, 10, 'Statistics class'),
+	(4, 2, 12, '2023-05-04', 10, 12, 'Chemistry Tutorial'),
+	(6, 3, 14, '2023-05-04', 14, 16, 'Public Speaking Course'),
+	(8, 1, 16, '2023-05-04', 16, 18, 'Journalism Workshop'),
+	(10, 2, 3, '2023-05-05', 8, 10, 'Geology lecture'),
+	(12, 3, 5, '2023-05-05', 10, 12, 'History of Art class'),
+	(1, 1, 7, '2023-05-05', 14, 16, 'French course'),
+	(3, 2, 9, '2023-05-05', 16, 18, 'Business Analytics'),
+	(5, 3, 11, '2023-05-06', 8, 10, 'Marketing Strategies'),
+	(7, 1, 13, '2023-05-06', 10, 12, 'German course'),
+	(9, 2, 15, '2023-05-06', 14, 16, 'Anthropology Tutorial'),
+	(11, 3, 2, '2023-05-06', 16, 18, 'English Language Course'),
+	(4, 1, 4, '2023-05-07', 8, 10, 'Botany lab');

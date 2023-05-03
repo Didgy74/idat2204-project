@@ -5,15 +5,14 @@ from markupsafe import escape
 app = Flask(__name__)
 
 
-def create_connection(username):
+def create_connection():
     config = {
         'host': 'localhost',
-        'user': username,
+        'user': 'root',
         'password': '',
         'db': 'project',
         'charset': 'utf8mb4',
         'cursorclass': pymysql.cursors.DictCursor
-
     }
 
     # Create a connection object
@@ -21,7 +20,7 @@ def create_connection(username):
 
 
 def run_query(username, query):
-    connection = create_connection(username)
+    connection = create_connection()
     with connection.cursor() as cursor:
         cursor.execute(query)
         data = cursor.fetchall()
@@ -32,7 +31,11 @@ def run_query(username, query):
 @app.route('/<username>/task01')
 def task01(username):
     query = f"""
-        CALL courses_for_lecturer(null);
+        SELECT room_id, building, course_name, description, booking_date, start_hour, end_hour, lecturer_id
+        FROM (SELECT * FROM bookings WHERE course_id IS NOT NULL) AS T1
+        JOIN (SELECT * FROM courses WHERE lecturer_id IS NULL) AS T2 ON T1.course_id = T2.id
+        JOIN rooms ON rooms.id = T1.room_id
+        ORDER BY booking_date;
     """
     return run_query(username, query)
 
@@ -40,14 +43,47 @@ def task01(username):
 @app.route('/<username>/task02/<lecturer_id>')
 def task02(username, lecturer_id):
     query = f"""
-        CALL courses_for_lecturer({lecturer_id});
+        SELECT lecturer_id, real_name, institute, course_name
+        FROM (SELECT * FROM courses WHERE lecturer_id = {lecturer_id}) AS T
+        JOIN lecturers_info ON lecturers_info.user_id = T.lecturer_id;
+    """
+    return run_query(username, query)
+
+
+@app.route('/<username>/task03/<room>/<date>/<start_hour>/<end_hour>')
+def task03(username, room, date, start_hour, end_hour):
+    query = f"""
+        SELECT *
+        FROM bookings 
+        WHERE 
+            room_id = {room} AND 
+            course_id IS NOT NULL AND
+            booking_date = '{date}' AND (
+                (start_hour <= {start_hour} AND end_hour > {start_hour}) OR 
+                (start_hour >= {start_hour} AND start_hour < {end_hour})
+            );
+    """
+    return run_query(username, query)
+
+
+@app.route('/<username>/task04/<room>/<date>/<hour>')
+def task04(username, room, date, hour):
+    query = f"""
+        SELECT *
+        FROM bookings 
+        WHERE 
+            room_id = {room} AND 
+            course_id IS NOT NULL AND
+            booking_date = '{date}' AND
+            start_hour <= {hour} AND 
+            end_hour > {hour};
     """
     return run_query(username, query)
 
 
 @app.route('/<username>/task05')
 def task05(username):
-    query = f"""
+    query = """
         SELECT * FROM courses_info;
     """
     return run_query(username, query)
@@ -56,7 +92,9 @@ def task05(username):
 @app.route('/<username>/task06/<lecturer_id>')
 def task06(username, lecturer_id):
     query = f"""
-        CALL courses_for_lecturer({lecturer_id});
+        SELECT * 
+        FROM (SELECT * courses WHERE lecturer_id = {lecturer_id}) AS T
+        JOIN lecturers_info ON lecturer_id = lecturers_info.user_id; 
     """
     return run_query(username, query)
 
