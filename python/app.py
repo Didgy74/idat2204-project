@@ -32,9 +32,12 @@ def run_query(username, query):
 def task01(username):
     query = f"""
         SELECT room_id, building, course_name, description, booking_date, start_hour, end_hour, lecturer_id
-        FROM (SELECT * FROM bookings WHERE course_id IS NOT NULL) AS T1
-        JOIN (SELECT * FROM courses WHERE lecturer_id IS NULL) AS T2 ON T1.course_id = T2.id
-        JOIN rooms ON rooms.id = T1.room_id
+        FROM bookings
+        JOIN courses ON bookings.course_id = courses.id
+        JOIN rooms ON rooms.id = bookings.room_id
+        WHERE
+            bookings.course_id IS NOT NULL AND
+            courses.lecturer_id IS NULL        
         ORDER BY booking_date;
     """
     return run_query(username, query)
@@ -44,8 +47,9 @@ def task01(username):
 def task02(username, lecturer_id):
     query = f"""
         SELECT lecturer_id, real_name, institute, course_name
-        FROM (SELECT * FROM courses WHERE lecturer_id = {lecturer_id}) AS T
+        FROM SELECT * FROM courses 
         JOIN lecturers_info ON lecturers_info.user_id = T.lecturer_id;
+        WHERE lecturer_id = {lecturer_id};
     """
     return run_query(username, query)
 
@@ -93,8 +97,9 @@ def task05(username):
 def task06(username, lecturer_id):
     query = f"""
         SELECT * 
-        FROM (SELECT * courses WHERE lecturer_id = {lecturer_id}) AS T
-        JOIN lecturers_info ON lecturer_id = lecturers_info.user_id; 
+        FROM courses
+        JOIN lecturers_info ON lecturer_id = lecturers_info.user_id
+        WHERE courses.lecturer_id = {lecturer_id}; 
     """
     return run_query(username, query)
 
