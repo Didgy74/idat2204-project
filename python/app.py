@@ -84,7 +84,7 @@ def task04(username, room, date, hour):
     """
     return run_query(username, query)
 
-
+#TODO: ADD EMAIL
 @app.route('/<username>/task05')
 def task05(username):
     query = """
@@ -92,7 +92,7 @@ def task05(username):
     """
     return run_query(username, query)
 
-
+#TODO: ADD FACULTY
 @app.route('/<username>/task06/<lecturer_id>')
 def task06(username, lecturer_id):
     query = f"""
@@ -181,6 +181,87 @@ def task10(username):
     """
     return run_query(username, query)
 
+#TODO: ADD A BOOKING BOOKING TYPE ?
+@app.route('/<username>/task11')
+def task11(username):
+    query = f"""
+SELECT rooms.id                AS "room number",
+       Count(bookings.room_id) AS bookings_count
+FROM   rooms
+       LEFT JOIN bookings
+              ON rooms.id = bookings.room_id
+GROUP  BY rooms.id; 
+    """
+    return run_query(username, query)
+
+@app.route('/<username>/task12')
+def task12(username):
+    query = """
+SELECT u.real_name          AS teacher_name,
+       l.user_id            AS teacher_id,
+       Count(c.lecturer_id) AS course_count
+FROM   lecturers l
+       LEFT JOIN courses c
+              ON l.user_id = c.lecturer_id
+       JOIN users u
+         ON l.user_id = u.id
+GROUP  BY l.user_id,
+          u.real_name
+ORDER  BY course_count DESC; 
+    """
+    return run_query(username, query)
+
+@app.route('/<username>/task13')
+def task13(username):
+    query = """
+SELECT l.user_id   AS lecturer_user_id,
+       c.course_name,
+       r.id        AS room_number,
+       r.building,
+       u.real_name AS teacher_name
+FROM   lecturers l
+       JOIN users u
+         ON l.user_id = u.id
+       JOIN bookings b
+         ON l.user_id = b.user_id
+       JOIN courses c
+         ON b.course_id = c.id
+       JOIN rooms r
+         ON b.room_id = r.id; 
+    """
+    return run_query(username, query)
+
+#GETS TOTAL HOURS IN THE WHOLE DATABASE, NOT EACH WEEK. NEED TO CHANGE THIS
+#TODO: ADD WEEK NUMBER TO BOOKINGS?
+@app.route('/<username>/task14')
+def task14(username):
+    query = """
+SELECT lecturers.user_id,
+       users.real_name                              AS lecturer,
+       Sum(bookings.end_hour - bookings.start_hour) AS total_hours
+FROM   lecturers
+       INNER JOIN bookings
+               ON lecturers.user_id = bookings.user_id
+       INNER JOIN users
+               ON lecturers.user_id = users.id
+GROUP  BY lecturers.user_id,
+          users.real_name;
+    """
+    return run_query(username, query)
+
+#TODO: ADD WEEKDAYS TO BOOKINGS?
+@app.route('/<username>/task15')
+def task15(username):
+    query = """
+    """
+    return run_query(username, query)
+
+#TODO: ADD NUMBER OF STUDENTS FIELD IN COURSES
+@app.route('/<username>/task16')
+def task16(username):
+    query = """
+    """
+    return run_query(username, query)
 
 if __name__ == '__main__':
     app.run()
