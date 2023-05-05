@@ -84,7 +84,6 @@ def task04(username, room, date, hour):
     """
     return run_query(username, query)
 
-#TODO: ADD EMAIL
 @app.route('/<username>/task05')
 def task05(username):
     query = """
@@ -92,7 +91,6 @@ def task05(username):
     """
     return run_query(username, query)
 
-#TODO: ADD FACULTY
 @app.route('/<username>/task06/<lecturer_id>')
 def task06(username, lecturer_id):
     query = f"""
@@ -181,12 +179,17 @@ def task10(username):
     """
     return run_query(username, query)
 
-#TODO: ADD A BOOKING BOOKING TYPE ?
 @app.route('/<username>/task11')
 def task11(username):
     query = f"""
 SELECT rooms.id                AS "room number",
-       Count(bookings.room_id) AS bookings_count
+       Count(CASE
+               WHEN bookings.booking_type = 'student' THEN 1
+             END)              AS "student_bookings",
+       Count(CASE
+               WHEN bookings.booking_type = 'course' THEN 1
+             END)              AS "course_bookings",
+       Count(bookings.room_id) AS "total_bookings"
 FROM   rooms
        LEFT JOIN bookings
               ON rooms.id = bookings.room_id
@@ -231,21 +234,21 @@ FROM   lecturers l
     """
     return run_query(username, query)
 
-#GETS TOTAL HOURS IN THE WHOLE DATABASE, NOT EACH WEEK. NEED TO CHANGE THIS
-#TODO: ADD WEEK NUMBER TO BOOKINGS?
 @app.route('/<username>/task14')
 def task14(username):
     query = """
-SELECT lecturers.user_id,
-       users.real_name                              AS lecturer,
-       Sum(bookings.end_hour - bookings.start_hour) AS total_hours
-FROM   lecturers
-       INNER JOIN bookings
-               ON lecturers.user_id = bookings.user_id
-       INNER JOIN users
-               ON lecturers.user_id = users.id
-GROUP  BY lecturers.user_id,
-          users.real_name;
+SELECT b.week_number,
+       u.real_name                    AS lecturer,
+       Sum(b.end_hour - b.start_hour) AS "hours this week"
+FROM   bookings b
+       INNER JOIN lecturers l
+               ON b.user_id = l.user_id
+       INNER JOIN users u
+               ON l.user_id = u.id
+       INNER JOIN courses c
+               ON b.course_id = c.id
+GROUP  BY b.week_number,
+          l.user_id; 
     """
     return run_query(username, query)
 

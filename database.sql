@@ -8,9 +8,10 @@ CREATE TABLE users (
   PRIMARY KEY (id),
   
   username varchar(32) NOT NULL UNIQUE,
-  real_name varchar(255) NOT NULL CHECK (LENGTH(real_name) != 0)
+  real_name varchar(255) NOT NULL CHECK (LENGTH(real_name) != 0),
+  email varchar(255) NOT NULL
 );
-INSERT INTO users VALUES(null, 'root', 'root');
+INSERT INTO users VALUES(null, 'root', 'root', 'root@gmail.com');
 
 -- Definiton for students. Specialization of user.
 CREATE TABLE students (
@@ -20,7 +21,7 @@ CREATE TABLE students (
 );
 -- Helpful view to see students with more readable info.
 CREATE VIEW students_info AS
-SELECT students.user_id, users.real_name, users.username
+SELECT students.user_id, users.real_name, users.username, users.email
 FROM students JOIN users ON students.user_id = users.id;
 
 -- Definition for lecturers. Specialization of user.
@@ -33,7 +34,7 @@ CREATE TABLE lecturers (
 );
 -- Helpful view to see lecturers with more readable info.
 CREATE VIEW lecturers_info AS
-SELECT user_id, users.real_name, users.username, lecturers.institute
+SELECT user_id, users.real_name, users.username, lecturers.institute, users.email
 FROM lecturers 
 JOIN users ON lecturers.user_id = users.id;
 
@@ -58,13 +59,16 @@ CREATE TABLE courses (
   lecturer_id int DEFAULT NULL,
   FOREIGN KEY (lecturer_id) REFERENCES lecturers(user_id),
   
-  course_name varchar(255) NOT NULL CHECK(LENGTH(course_name) != 0)
+  course_name varchar(255) NOT NULL CHECK(LENGTH(course_name) != 0),
+
+  faculty varchar(255) NOT NULL CHECK(LENGTH(faculty) != 0)
 );
 -- Helpful view to see courses with more readable info.
 CREATE VIEW courses_info AS
 SELECT 
 	courses.id AS course_id, 
 	courses.course_name, 
+  lecturers_info.email AS email,
 	lecturers_info.real_name AS lecturer_name
 FROM courses
 LEFT JOIN lecturers_info ON courses.lecturer_id = lecturers_info.user_id;
@@ -102,9 +106,23 @@ CREATE TABLE bookings (
   start_hour INT NOT NULL CHECK(start_hour >= 0 AND start_hour < 24),
   end_hour INT NOT NULL CHECK(end_hour >= 0 AND end_hour < 24),
   CONSTRAINT CHECK(end_hour > start_hour),
-  
-  description varchar(255) NOT NULL
+  week_number INT NOT NULL,
+
+  booking_type VARCHAR(255) NOT NULL,
+
+  description VARCHAR(255) NOT NULL
 );
+
+-- Sets week number automatically 
+DELIMITER $$
+CREATE TRIGGER set_week_number
+BEFORE INSERT ON bookings
+FOR EACH ROW
+BEGIN
+  SET NEW.week_number = WEEK(NEW.booking_date);
+END$$
+DELIMITER ;
+
 -- Helpful view to see bookings with more readable info.
 CREATE VIEW bookings_info AS
 SELECT room_id, booking_date, start_hour, end_hour, description, courses.course_name AS course_name
@@ -114,94 +132,94 @@ ORDER BY booking_date;
 
 
 -- Add a lecturer and give him some courses.
-INSERT INTO users VALUES (null, 'jsmith', 'John Smith');
+INSERT INTO users VALUES (null, 'jsmith', 'John Smith', 'john.smith@gmail.com');
 SET @lecturer_id := LAST_INSERT_ID();
 INSERT INTO lecturers VALUES (@lecturer_id, 'Business Administration');
-INSERT INTO courses VALUES (null, @lecturer_id, 'Ladders');
-INSERT INTO courses VALUES (null, @lecturer_id, 'Advanced Breath Holding');
+INSERT INTO courses VALUES (null, @lecturer_id, 'Ladders', 'Faculty 4');
+INSERT INTO courses VALUES (null, @lecturer_id, 'Advanced Breath Holding', 'Faculty 2');
 
-INSERT INTO users VALUES (null, 'mbrown', 'Mary Brown');
+INSERT INTO users VALUES (null, 'mbrown', 'Mary Brown', 'mary.brown@gmail.com');
 SET @lecturer_id := LAST_INSERT_ID();
 INSERT INTO lecturers VALUES (@lecturer_id, 'Engineering');
-INSERT INTO courses VALUES (null, @lecturer_id, 'Theoretical Phys Ed');
-INSERT INTO courses VALUES (null, @lecturer_id, 'Physical Education Education');
-INSERT INTO courses VALUES (null, @lecturer_id, 'Class 101');
+INSERT INTO courses VALUES (null, @lecturer_id, 'Theoretical Phys Ed', 'Faculty 1');
+INSERT INTO courses VALUES (null, @lecturer_id, 'Physical Education Education', 'Faculty 1');
+INSERT INTO courses VALUES (null, @lecturer_id, 'Class 101', 'Faculty 3');
 
-INSERT INTO users VALUES (null, 'dlee', 'David Lee');
+INSERT INTO users VALUES (null, 'dlee', 'David Lee', 'david.lee@gmail.com');
 SET @lecturer_id := LAST_INSERT_ID();
 INSERT INTO lecturers VALUES (@lecturer_id, 'Computer Science');
-INSERT INTO courses VALUES (null, @lecturer_id, 'The History of Internet Cat Videos');
-INSERT INTO courses VALUES (null, @lecturer_id, 'Feline Algebra');
-INSERT INTO courses VALUES (null, @lecturer_id, 'C++ as a first language');
-INSERT INTO courses VALUES (null, @lecturer_id, 'Graphics programming');
+INSERT INTO courses VALUES (null, @lecturer_id, 'The History of Internet Cat Videos', 'Faculty 1');
+INSERT INTO courses VALUES (null, @lecturer_id, 'Feline Algebra', 'Faculty 2');
+INSERT INTO courses VALUES (null, @lecturer_id, 'C++ as a first language', 'Faculty 3');
+INSERT INTO courses VALUES (null, @lecturer_id, 'Graphics programming', 'Faculty 3');
 SET @gfx_course_id = LAST_INSERT_ID();
 
-INSERT INTO users VALUES (null, 'sjohnson', 'Sarah Johnson');
+INSERT INTO users VALUES (null, 'sjohnson', 'Sarah Johnson', 'sarah.johnson@gmail.com');
 SET @lecturer_id := LAST_INSERT_ID();
 INSERT INTO lecturers VALUES (@lecturer_id, 'Law');
-INSERT INTO courses VALUES (null, @lecturer_id, 'Sneezing Fundamentals');
+INSERT INTO courses VALUES (null, @lecturer_id, 'Sneezing Fundamentals', 'Faculty 4');
 
-INSERT INTO users VALUES (null, 'mkim', 'Michael Kim');
+INSERT INTO users VALUES (null, 'mkim', 'Michael Kim', 'michael.kim@gmail.com');
 SET @lecturer_id := LAST_INSERT_ID();
 INSERT INTO lecturers VALUES (@lecturer_id, 'Medicine');
-INSERT INTO courses VALUES (null, @lecturer_id, 'Food Poisoning 102');
+INSERT INTO courses VALUES (null, @lecturer_id, 'Food Poisoning 102', 'Faculty 3');
 
-INSERT INTO users VALUES (null, 'jdoe', 'John Doe');
+INSERT INTO users VALUES (null, 'jdoe', 'John Doe', 'john.doe@gmail.com');
 SET @lecturer_id := LAST_INSERT_ID();
 INSERT INTO lecturers VALUES (@lecturer_id, 'Sociology');
 
 -- Add some courses without any lecturer.
-INSERT INTO courses(course_name) VALUES 
-	('Rocket Science for dummies'),
-    ('Advanced teleportation'),
-    ('Intro to Napping 101'),
-    ('The Art of Procrastination'),
-    ('The Fine Art of Water Balloon Warfare');
+INSERT INTO courses(course_name, faculty) VALUES 
+	('Rocket Science for dummies', 'Faculty 1'),
+    ('Advanced teleportation', 'Faculty 2'),
+    ('Intro to Napping 101', 'Faculty 2'),
+    ('The Art of Procrastination', 'Faculty 1'),
+    ('The Fine Art of Water Balloon Warfare', 'Faculty 1');
 
 -- 15 students.
-INSERT INTO users VALUES (null, 'nils', 'Nils Petter');
+INSERT INTO users VALUES (null, 'nils', 'Nils Petter', 'nils.petter@gmail.com');
 SET @student_id = LAST_INSERT_ID();
 INSERT INTO students VALUES (@student_id);
-INSERT INTO users VALUES (null, 'apatel', 'Ava Patel');
+INSERT INTO users VALUES (null, 'apatel', 'Ava Patel', 'ava.patel@gmail.com');
 SET @student_id = LAST_INSERT_ID();
 INSERT INTO students VALUES (@student_id);
-INSERT INTO users VALUES (null, 'llee', 'Liam Lee');
+INSERT INTO users VALUES (null, 'llee', 'Liam Lee', 'liam.lee@gmail.com');
 SET @student_id = LAST_INSERT_ID();
 INSERT INTO students VALUES (@student_id);
-INSERT INTO users VALUES (null, 'mkim2', 'Mia Kim');
+INSERT INTO users VALUES (null, 'mkim2', 'Mia Kim', 'mia.kim@gmail.com');
 SET @student_id = LAST_INSERT_ID();
 INSERT INTO students VALUES (@student_id);
-INSERT INTO users VALUES (null, 'njohnson', 'Noah Johnson');
+INSERT INTO users VALUES (null, 'njohnson', 'Noah Johnson', 'noah.johnson@gmail.com');
 SET @student_id = LAST_INSERT_ID();
 INSERT INTO students VALUES (@student_id);
-INSERT INTO users VALUES (null, 'echen', 'Emma Chen');
+INSERT INTO users VALUES (null, 'echen', 'Emma Chen', 'emma.chen@gmail.com');
 SET @student_id = LAST_INSERT_ID();
 INSERT INTO students VALUES (@student_id);
-INSERT INTO users VALUES (null, 'adavis', 'Aiden Davis');
+INSERT INTO users VALUES (null, 'adavis', 'Aiden Davis', 'aiden.davis@gmail.com');
 SET @student_id = LAST_INSERT_ID();
 INSERT INTO students VALUES (@student_id);
-INSERT INTO users VALUES (null, 'owong', 'Olivia Wong');
+INSERT INTO users VALUES (null, 'owong', 'Olivia Wong', 'olivia.wong@gmail.com');
 SET @student_id = LAST_INSERT_ID();
 INSERT INTO students VALUES (@student_id);
-INSERT INTO users VALUES (null, 'lsingh', 'Lucas Singh');
+INSERT INTO users VALUES (null, 'lsingh', 'Lucas Singh', 'lucas.singh@gmail.com');
 SET @student_id = LAST_INSERT_ID();
 INSERT INTO students VALUES (@student_id);
-INSERT INTO users VALUES (null, 'igupta', 'Isabella Gupta');
+INSERT INTO users VALUES (null, 'igupta', 'Isabella Gupta', 'isabella.gupta@gmail.com');
 SET @student_id = LAST_INSERT_ID();
 INSERT INTO students VALUES (@student_id);
-INSERT INTO users VALUES (null, 'mnguyen', 'Mason Nguyen');
+INSERT INTO users VALUES (null, 'mnguyen', 'Mason Nguyen', 'mason.nguyen@gmail.com');
 SET @student_id = LAST_INSERT_ID();
 INSERT INTO students VALUES (@student_id);
-INSERT INTO users VALUES (null, 'shuang', 'Sophia Huang');
+INSERT INTO users VALUES (null, 'shuang', 'Sophia Huang', 'sophia.huang@gmail.com');
 SET @student_id = LAST_INSERT_ID();
 INSERT INTO students VALUES (@student_id);
-INSERT INTO users VALUES (null, 'lshah', 'Logan Shah');
+INSERT INTO users VALUES (null, 'lshah', 'Logan Shah', 'logan.shah@gmail.com');
 SET @student_id = LAST_INSERT_ID();
 INSERT INTO students VALUES (@student_id);
-INSERT INTO users VALUES (null, 'hdas', 'Harper Das');
+INSERT INTO users VALUES (null, 'hdas', 'Harper Das', 'harper.das@gmail.com');
 SET @student_id = LAST_INSERT_ID();
 INSERT INTO students VALUES (@student_id);
-INSERT INTO users VALUES (null, 'jpark', 'Jackson Park');
+INSERT INTO users VALUES (null, 'jpark', 'Jackson Park', 'jackson.park@gmail.com');
 SET @student_id = LAST_INSERT_ID();
 INSERT INTO students VALUES (@student_id);
 
@@ -269,29 +287,30 @@ INSERT INTO rooms(size, building) VALUES
 	(20, 'Alpha'),
 	(45, 'Alpha');
 
-INSERT INTO bookings(user_id, room_id, course_id, booking_date, start_hour, end_hour, description) VALUES
-	(1, 1, 1, '2023-05-01', 8, 13, 'Maths Tutorial'),
-	(2, 2, 3, '2023-05-01', 10, 12, 'Physics Lab'),
-	(3, 1, 5, '2023-05-01', 14, 16, 'Economics class'),
-	(4, 1, 7, '2023-05-01', 16, 18, 'Introduction to Programming'),
-	(5, 2, null, '2023-05-02', 8, 10, 'History lecture'),
-	(6, 3, 11, '2023-05-02', 10, 12, 'Marketing seminar'),
-	(7, 1, 13, '2023-05-02', 14, 16, 'Spanish Course'),
-	(8, 2, 15, '2023-05-02', 16, 18, 'Sociology Tutorial'),
-	(9, 3, null, '2023-05-03', 8, 10, 'English Literature Class'),
-	(10, 1, 4, '2023-05-03', 10, 12, 'Biology lab'),
-	(11, 2, 6, '2023-05-03', 14, 16, 'Computer Networks'),
-	(12, 3, 8, '2023-05-03', 16, 18, 'Philosophy Seminar'),
-	(2, 1, 10, '2023-05-04', 8, 10, 'Statistics class'),
-	(4, 2, null, '2023-05-04', 10, 12, 'Chemistry Tutorial'),
-	(6, 3, 14, '2023-05-04', 14, 16, 'Public Speaking Course'),
-	(8, 1, 16, '2023-05-04', 16, 18, 'Journalism Workshop'),
-	(10, 2, null, '2023-05-05', 8, 10, 'Geology lecture'),
-	(12, 3, 5, '2023-05-05', 10, 12, 'History of Art class'),
-	(1, 1, 7, '2023-05-05', 14, 16, 'French course'),
-	(3, 2, 9, '2023-05-05', 16, 18, 'Business Analytics'),
-	(5, 3, null, '2023-05-06', 8, 10, 'Marketing Strategies'),
-	(7, 1, 13, '2023-05-06', 10, 12, 'German course'),
-	(9, 2, 15, '2023-05-06', 14, 16, 'Anthropology Tutorial'),
-	(11, 3, 2, '2023-05-06', 16, 18, 'English Language Course'),
-	(4, 1, 4, '2023-05-07', 8, 10, 'Botany lab');
+INSERT INTO bookings(user_id, room_id, course_id, booking_date, start_hour, end_hour, description, booking_type) VALUES
+	(1, 1, 1, '2023-05-01', 8, 13, 'Maths Tutorial', ''),
+	(2, 2, 3, '2023-05-01', 10, 12, 'Physics Lab', 'course'),
+	(3, 1, 5, '2023-05-01', 14, 16, 'Economics class', 'course'),
+	(4, 1, 7, '2023-05-01', 16, 18, 'Introduction to Programming', 'course'),
+	(5, 2, null, '2023-05-02', 8, 10, 'History lecture', 'course'),
+	(6, 3, 11, '2023-05-02', 10, 12, 'Marketing seminar', 'course'),
+	(7, 1, 13, '2023-05-02', 14, 16, 'Spanish Course', 'course'),
+	(8, 2, 15, '2023-05-02', 16, 18, 'Sociology Tutorial', 'student'),
+	(9, 3, null, '2023-05-03', 8, 10, 'English Literature Class', 'student'),
+	(10, 1, 4, '2023-05-03', 10, 12, 'Biology lab', 'student'),
+	(11, 2, 6, '2023-05-03', 14, 16, 'Computer Networks', 'student'),
+	(12, 3, 8, '2023-05-03', 16, 18, 'Philosophy Seminar', 'student'),
+	(2, 1, 10, '2023-05-04', 8, 10, 'Statistics class', 'course'),
+	(4, 2, null, '2023-05-04', 10, 12, 'Chemistry Tutorial', 'course'),
+	(6, 3, 14, '2023-05-04', 14, 16, 'Public Speaking Course', 'course'),
+	(8, 1, 16, '2023-05-04', 16, 18, 'Journalism Workshop', 'student'),
+	(10, 2, null, '2023-05-05', 8, 10, 'Geology lecture', 'student'),
+	(12, 3, 5, '2023-05-05', 10, 12, 'History of Art class', 'student'),
+	(1, 1, 7, '2023-05-05', 14, 16, 'French course', 'course'),
+	(3, 2, 9, '2023-05-05', 16, 18, 'Business Analytics', 'course'),
+	(5, 3, null, '2023-05-06', 8, 10, 'Marketing Strategies', 'course'),
+	(7, 1, 13, '2023-05-06', 10, 12, 'German course', 'course'),
+	(9, 2, 15, '2023-05-06', 14, 16, 'Anthropology Tutorial', 'student'),
+	(11, 3, 2, '2023-05-06', 16, 18, 'English Language Course', 'student'),
+	(4, 1, 4, '2023-05-07', 8, 10, 'Botany lab', 'course');
+
