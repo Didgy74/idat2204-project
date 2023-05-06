@@ -252,17 +252,41 @@ GROUP  BY b.week_number,
     """
     return run_query(username, query)
 
-#TODO: ADD WEEKDAYS TO BOOKINGS?
 @app.route('/<username>/task15')
 def task15(username):
     query = """
+SELECT r.id        AS room_number,
+       r.building,
+       b.booking_date,
+       b.week_day,
+       b.start_hour,
+       b.end_hour,
+       c.course_name,
+       u.real_name AS lecturer_name,
+       u.email
+FROM   courses c
+       JOIN bookings b
+         ON c.id = b.course_id
+       JOIN lecturers l
+         ON c.lecturer_id = l.user_id
+       JOIN users u
+         ON l.user_id = u.id
+       JOIN rooms r
+         ON b.room_id = r.id
+WHERE  b.week_day = 'Monday' 
     """
     return run_query(username, query)
 
-#TODO: ADD NUMBER OF STUDENTS FIELD IN COURSES
 @app.route('/<username>/task16')
 def task16(username):
     query = """
+    SELECT AVG(c.enrolled_students) AS avg_enrollment, u.real_name AS lecturer_name
+FROM lecturers l
+JOIN courses c ON l.user_id = c.lecturer_id
+       JOIN users u
+         ON l.user_id = u.id
+GROUP BY l.user_id
+ORDER BY avg_enrollment DESC;
     """
     return run_query(username, query)
 

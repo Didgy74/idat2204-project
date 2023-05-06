@@ -61,7 +61,9 @@ CREATE TABLE courses (
   
   course_name varchar(255) NOT NULL CHECK(LENGTH(course_name) != 0),
 
-  faculty varchar(255) NOT NULL CHECK(LENGTH(faculty) != 0)
+  faculty varchar(255) NOT NULL CHECK(LENGTH(faculty) != 0),
+
+  enrolled_students int DEFAULT 0
 );
 -- Helpful view to see courses with more readable info.
 CREATE VIEW courses_info AS
@@ -107,6 +109,7 @@ CREATE TABLE bookings (
   end_hour INT NOT NULL CHECK(end_hour >= 0 AND end_hour < 24),
   CONSTRAINT CHECK(end_hour > start_hour),
   week_number INT NOT NULL,
+  week_day VARCHAR(255) NOT NULL,
 
   booking_type VARCHAR(255) NOT NULL,
 
@@ -123,6 +126,16 @@ BEGIN
 END$$
 DELIMITER ;
 
+-- Sets week day automatically 
+DELIMITER $$
+CREATE TRIGGER set_week_day
+BEFORE INSERT ON bookings
+FOR EACH ROW
+BEGIN
+  SET NEW.week_day = DATE_FORMAT(NEW.booking_date, '%W');
+END$$
+DELIMITER ;
+
 -- Helpful view to see bookings with more readable info.
 CREATE VIEW bookings_info AS
 SELECT room_id, booking_date, start_hour, end_hour, description, courses.course_name AS course_name
@@ -135,34 +148,34 @@ ORDER BY booking_date;
 INSERT INTO users VALUES (null, 'jsmith', 'John Smith', 'john.smith@gmail.com');
 SET @lecturer_id := LAST_INSERT_ID();
 INSERT INTO lecturers VALUES (@lecturer_id, 'Business Administration');
-INSERT INTO courses VALUES (null, @lecturer_id, 'Ladders', 'Faculty 4');
-INSERT INTO courses VALUES (null, @lecturer_id, 'Advanced Breath Holding', 'Faculty 2');
+INSERT INTO courses VALUES (null, @lecturer_id, 'Ladders', 'Faculty 4', 0);
+INSERT INTO courses VALUES (null, @lecturer_id, 'Advanced Breath Holding', 'Faculty 2', 0);
 
 INSERT INTO users VALUES (null, 'mbrown', 'Mary Brown', 'mary.brown@gmail.com');
 SET @lecturer_id := LAST_INSERT_ID();
 INSERT INTO lecturers VALUES (@lecturer_id, 'Engineering');
-INSERT INTO courses VALUES (null, @lecturer_id, 'Theoretical Phys Ed', 'Faculty 1');
-INSERT INTO courses VALUES (null, @lecturer_id, 'Physical Education Education', 'Faculty 1');
-INSERT INTO courses VALUES (null, @lecturer_id, 'Class 101', 'Faculty 3');
+INSERT INTO courses VALUES (null, @lecturer_id, 'Theoretical Phys Ed', 'Faculty 1', 0);
+INSERT INTO courses VALUES (null, @lecturer_id, 'Physical Education Education', 'Faculty 1', 0);
+INSERT INTO courses VALUES (null, @lecturer_id, 'Class 101', 'Faculty 3', 0);
 
 INSERT INTO users VALUES (null, 'dlee', 'David Lee', 'david.lee@gmail.com');
 SET @lecturer_id := LAST_INSERT_ID();
 INSERT INTO lecturers VALUES (@lecturer_id, 'Computer Science');
-INSERT INTO courses VALUES (null, @lecturer_id, 'The History of Internet Cat Videos', 'Faculty 1');
-INSERT INTO courses VALUES (null, @lecturer_id, 'Feline Algebra', 'Faculty 2');
-INSERT INTO courses VALUES (null, @lecturer_id, 'C++ as a first language', 'Faculty 3');
-INSERT INTO courses VALUES (null, @lecturer_id, 'Graphics programming', 'Faculty 3');
+INSERT INTO courses VALUES (null, @lecturer_id, 'The History of Internet Cat Videos', 'Faculty 1', 0);
+INSERT INTO courses VALUES (null, @lecturer_id, 'Feline Algebra', 'Faculty 2', 0);
+INSERT INTO courses VALUES (null, @lecturer_id, 'C++ as a first language', 'Faculty 3', 0);
+INSERT INTO courses VALUES (null, @lecturer_id, 'Graphics programming', 'Faculty 3', 0);
 SET @gfx_course_id = LAST_INSERT_ID();
 
 INSERT INTO users VALUES (null, 'sjohnson', 'Sarah Johnson', 'sarah.johnson@gmail.com');
 SET @lecturer_id := LAST_INSERT_ID();
 INSERT INTO lecturers VALUES (@lecturer_id, 'Law');
-INSERT INTO courses VALUES (null, @lecturer_id, 'Sneezing Fundamentals', 'Faculty 4');
+INSERT INTO courses VALUES (null, @lecturer_id, 'Sneezing Fundamentals', 'Faculty 4', 0);
 
 INSERT INTO users VALUES (null, 'mkim', 'Michael Kim', 'michael.kim@gmail.com');
 SET @lecturer_id := LAST_INSERT_ID();
 INSERT INTO lecturers VALUES (@lecturer_id, 'Medicine');
-INSERT INTO courses VALUES (null, @lecturer_id, 'Food Poisoning 102', 'Faculty 3');
+INSERT INTO courses VALUES (null, @lecturer_id, 'Food Poisoning 102', 'Faculty 3', 0);
 
 INSERT INTO users VALUES (null, 'jdoe', 'John Doe', 'john.doe@gmail.com');
 SET @lecturer_id := LAST_INSERT_ID();
@@ -314,3 +327,10 @@ INSERT INTO bookings(user_id, room_id, course_id, booking_date, start_hour, end_
 	(11, 3, 2, '2023-05-06', 16, 18, 'English Language Course', 'student'),
 	(4, 1, 4, '2023-05-07', 8, 10, 'Botany lab', 'course');
 
+
+UPDATE courses c
+SET c.enrolled_students = (
+  SELECT COUNT(*)
+  FROM studentscourses sc
+  WHERE sc.course_id = c.id
+);
