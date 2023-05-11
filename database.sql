@@ -108,33 +108,13 @@ CREATE TABLE bookings (
   start_hour INT NOT NULL CHECK(start_hour >= 0 AND start_hour < 24),
   end_hour INT NOT NULL CHECK(end_hour >= 0 AND end_hour < 24),
   CONSTRAINT CHECK(end_hour > start_hour),
-  week_number INT NOT NULL,
-  week_day VARCHAR(255) NOT NULL,
+  week_number INT AS (WEEK(booking_date)),
+  week_day VARCHAR(255) AS (DATE_FORMAT(booking_date, '%W')),
 
   booking_type VARCHAR(255) NOT NULL,
 
   description VARCHAR(255) NOT NULL
 );
-
--- Sets week number automatically 
-DELIMITER $$
-CREATE TRIGGER set_week_number
-BEFORE INSERT ON bookings
-FOR EACH ROW
-BEGIN
-  SET NEW.week_number = WEEK(NEW.booking_date);
-END$$
-DELIMITER ;
-
--- Sets week day automatically 
-DELIMITER $$
-CREATE TRIGGER set_week_day
-BEFORE INSERT ON bookings
-FOR EACH ROW
-BEGIN
-  SET NEW.week_day = DATE_FORMAT(NEW.booking_date, '%W');
-END$$
-DELIMITER ;
 
 -- Helpful view to see bookings with more readable info.
 CREATE VIEW bookings_info AS
