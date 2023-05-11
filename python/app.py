@@ -19,7 +19,7 @@ def create_connection():
     return pymysql.connect(**config)
 
 
-def run_query(username, query):
+def run_query(query):
     connection = create_connection()
     with connection.cursor() as cursor:
         cursor.execute(query)
@@ -28,8 +28,8 @@ def run_query(username, query):
     return response
 
 
-@app.route('/<username>/task01')
-def task01(username):
+@app.route('/task01')
+def task01():
     query = f"""
         SELECT room_id, building, course_name, description, booking_date, start_hour, end_hour, lecturer_id
         FROM bookings
@@ -40,22 +40,22 @@ def task01(username):
             courses.lecturer_id IS NULL        
         ORDER BY booking_date;
     """
-    return run_query(username, query)
+    return run_query(query)
 
 
-@app.route('/<username>/task02/<lecturer_id>')
-def task02(username, lecturer_id):
+@app.route('/task02/<lecturer_id>')
+def task02(lecturer_id):
     query = f"""
         SELECT lecturer_id, real_name, institute, course_name
-        FROM SELECT * FROM courses 
-        JOIN lecturers_info ON lecturers_info.user_id = T.lecturer_id;
+        FROM courses
+        JOIN lecturers_info ON lecturers_info.user_id = courses.lecturer_id
         WHERE lecturer_id = {lecturer_id};
     """
-    return run_query(username, query)
+    return run_query(query)
 
 
-@app.route('/<username>/task03/<room>/<date>/<start_hour>/<end_hour>')
-def task03(username, room, date, start_hour, end_hour):
+@app.route('/task03/<room>/<date>/<start_hour>/<end_hour>')
+def task03(room, date, start_hour, end_hour):
     query = f"""
         SELECT *
         FROM bookings 
@@ -67,11 +67,11 @@ def task03(username, room, date, start_hour, end_hour):
                 (start_hour >= {start_hour} AND start_hour < {end_hour})
             );
     """
-    return run_query(username, query)
+    return run_query(query)
 
 
-@app.route('/<username>/task04/<room>/<date>/<hour>')
-def task04(username, room, date, hour):
+@app.route('/task04/<room>/<date>/<hour>')
+def task04(room, date, hour):
     query = f"""
         SELECT *
         FROM bookings 
@@ -82,28 +82,30 @@ def task04(username, room, date, hour):
             start_hour <= {hour} AND 
             end_hour > {hour};
     """
-    return run_query(username, query)
+    return run_query(query)
 
-@app.route('/<username>/task05')
-def task05(username):
+
+@app.route('/task05')
+def task05():
     query = """
         SELECT * FROM courses_info;
     """
-    return run_query(username, query)
+    return run_query(query)
 
-@app.route('/<username>/task06/<lecturer_id>')
-def task06(username, lecturer_id):
+
+@app.route('/task06/<lecturer_id>')
+def task06(lecturer_id):
     query = f"""
         SELECT * 
         FROM courses
         JOIN lecturers_info ON lecturer_id = lecturers_info.user_id
         WHERE courses.lecturer_id = {lecturer_id}; 
     """
-    return run_query(username, query)
+    return run_query(query)
 
 
-@app.route('/<username>/task07/<lecturer_id>')
-def task07(username, lecturer_id):
+@app.route('/task07/<lecturer_id>')
+def task07(lecturer_id):
     query = f"""
         SELECT room_id, building, course_name, description, booking_date, start_hour, end_hour, lecturer_id
         FROM bookings
@@ -114,10 +116,11 @@ def task07(username, lecturer_id):
             courses.lecturer_id = {lecturer_id}        
         ORDER BY booking_date;
     """
-    return run_query(username, query)
+    return run_query(query)
 
-@app.route('/<username>/task08/<date>/<start>/<end>')
-def task08(username, date, start, end):
+
+@app.route('/task08/<date>/<start>/<end>')
+def task08(date, start, end):
     query = f"""
         SELECT 
             rooms.id AS room_id,
@@ -136,11 +139,11 @@ def task08(username, date, start, end):
             WHERE t1.room_id IS NULL
         ORDER BY rooms.id;
     """
-    return run_query(username, query)
+    return run_query(query)
 
 
-@app.route('/<username>/task09/<user_id>')
-def task09(username, user_id):
+@app.route('/task09/<user_id>')
+def task09(user_id):
     query = f"""
         SELECT 
             bookings.user_id, 
@@ -156,11 +159,11 @@ def task09(username, user_id):
         JOIN users ON bookings.user_id = users.id
         WHERE bookings.user_id = {user_id};
     """
-    return run_query(username, query)
+    return run_query(query)
 
 
-@app.route('/<username>/task10')
-def task10(username):
+@app.route('/task10')
+def task10():
     query = f"""
         SELECT 
             rooms.id AS room_id, 
@@ -177,10 +180,11 @@ def task10(username):
         LEFT JOIN users ON bookings.user_id = users.id
         ORDER BY rooms.id;
     """
-    return run_query(username, query)
+    return run_query(query)
 
-@app.route('/<username>/task11')
-def task11(username):
+
+@app.route('/task11')
+def task11():
     query = f"""
 SELECT rooms.id                AS "room number",
        Count(CASE
@@ -195,10 +199,11 @@ FROM   rooms
               ON rooms.id = bookings.room_id
 GROUP  BY rooms.id; 
     """
-    return run_query(username, query)
+    return run_query(query)
 
-@app.route('/<username>/task12')
-def task12(username):
+
+@app.route('/task12')
+def task12():
     query = """
 SELECT u.real_name          AS teacher_name,
        l.user_id            AS teacher_id,
@@ -212,10 +217,11 @@ GROUP  BY l.user_id,
           u.real_name
 ORDER  BY course_count DESC; 
     """
-    return run_query(username, query)
+    return run_query(query)
 
-@app.route('/<username>/task13')
-def task13(username):
+
+@app.route('/task13')
+def task13():
     query = """
 SELECT l.user_id   AS lecturer_user_id,
        c.course_name,
@@ -232,10 +238,11 @@ FROM   lecturers l
        JOIN rooms r
          ON b.room_id = r.id; 
     """
-    return run_query(username, query)
+    return run_query(query)
 
-@app.route('/<username>/task14')
-def task14(username):
+
+@app.route('/task14')
+def task14():
     query = """
 SELECT b.week_number,
        u.real_name                    AS lecturer,
@@ -250,10 +257,11 @@ FROM   bookings b
 GROUP  BY b.week_number,
           l.user_id; 
     """
-    return run_query(username, query)
+    return run_query(query)
 
-@app.route('/<username>/task15')
-def task15(username):
+
+@app.route('/task15')
+def task15():
     query = """
 SELECT r.id        AS room_number,
        r.building,
@@ -275,10 +283,11 @@ FROM   courses c
          ON b.room_id = r.id
 WHERE  b.week_day = 'Monday' 
     """
-    return run_query(username, query)
+    return run_query(query)
 
-@app.route('/<username>/task16')
-def task16(username):
+
+@app.route('/task16')
+def task16():
     query = """
     SELECT AVG(c.enrolled_students) AS avg_enrollment, u.real_name AS lecturer_name
 FROM lecturers l
@@ -288,7 +297,8 @@ JOIN courses c ON l.user_id = c.lecturer_id
 GROUP BY l.user_id
 ORDER BY avg_enrollment DESC;
     """
-    return run_query(username, query)
+    return run_query(query)
+
 
 if __name__ == '__main__':
     app.run()
